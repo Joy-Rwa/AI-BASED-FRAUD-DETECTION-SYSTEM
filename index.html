@@ -796,8 +796,8 @@ table.tbl tbody tr:hover{background:var(--surface-2)}
             <option>Moderator</option>
             <option>Researcher</option>
             <option>Administrator</option>
-            <option>Buyers</option>
-            <option>Sellers</option>
+            <option>Buyer</option>
+            <option>Seller</option>
           </select>
         </div>
         <div class="field">
@@ -1613,8 +1613,9 @@ const DEMO_ACCOUNTS=[
  {user:'admin',      pass:'admin123',    name:'Aline Dushime',  role:'Administrator', initials:'AD', color:'var(--royal)'},
  {user:'researcher', pass:'research123', name:'Eric Habimana',  role:'Researcher',    initials:'EH', color:'var(--cyan)'},
  {user:'analyst',    pass:'analyst123',  name:'Sandra Keza',    role:'Data Analyst',  initials:'SK', color:'var(--green)'},
- {user:'moderator',  pass:'mod123',      name:'Jean Niyonzima', role:'Moderator',     initials:'JN', color:'var(--amber)'},
-  {user:'seller',    pass:'seller123',    name:'UWERA Cynthia',  role:'Seller',        initials:'UC', color:'var(--red)'}
+ {user:'moderator',  pass:'moderator123',      name:'Jean Niyonzima', role:'Moderator',     initials:'JN', color:'var(--amber)'},
+  {user:'seller',    pass:'seller123',    name:'UWERA Cynthia',  role:'Seller',        initials:'UC', color:'var(--red)'},
+  {user:'buyer',    pass:'buyer123',    name:'Buyer User',  role:'Buyer',        initials:'BU', color:'var(--blue)'}
 ];
 
 const STATE={
@@ -1724,9 +1725,22 @@ function completeLogin(acct, remember){
   try{ remember ? localStorage.setItem(SESSION_KEY, acct.user) : localStorage.removeItem(SESSION_KEY); }catch(e){}
   $('#login').style.display='none';
   $('#app').classList.add('on');
-  navTo('dashboard');
+  /* Apply role based access */
+  applyRoleAccess();
+
+  /* Buyers start directly in AI Detection */
+  if(acct.role === 'Buyer'){
+    navTo('detect');
+  }else{
+    navTo('dashboard');
+  }
+
   toast(`Welcome back, ${acct.name.split(' ')[0]}.`,'genuine');
-  maybeTour();
+
+  /* Do not show the normal dashboard tour to Buyers */
+  if(acct.role !== 'Buyer'){
+    maybeTour();
+  }
 }
 
 function doLogin(){
@@ -1797,15 +1811,75 @@ const VIEW_TITLES={
 };
 let CURRENT_VIEW='dashboard';
 function navTo(view){
+  /* Buyer is allowed to use AI Detection only */
+  if(STATE.user && STATE.user.role === 'Buyer'){
+    if(view !== 'detect'){
+      view = 'detect';
+    }
+  }
+
   if(!VIEW_TITLES[view]) view='dashboard';
+
   CURRENT_VIEW=view;
-  $$('.sb-link').forEach(l=>l.classList.toggle('active', l.dataset.view===view));
-  $$('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+view));
-  const cr=$('#crumbCur'); if(cr) cr.textContent=VIEW_TITLES[view];
+
+  $$('.sb-link').forEach(l=>{
+    l.classList.toggle('active', l.dataset.view===view);
+  });
+
+  $$('.view').forEach(v=>{
+    v.classList.toggle('active', v.id==='view-'+view);
+  });
+
+  const cr=$('#crumbCur');
+  if(cr) cr.textContent=VIEW_TITLES[view];
+
   renderView(view);
   closeSidebar();
-  const c=$('.content'); if(c) c.scrollTop=0;
+
+  const c=$('.content');
+  if(c) c.scrollTop=0;
 }
+  
+  /* hide all other sidebar buttons */
+ function applyRoleAccess(){
+
+  if(!STATE.user) return;
+
+  const role = STATE.user.role;
+
+  /* Buyer can only access AI Detection */
+  if(role === 'Buyer'){
+
+    $$('.sb-link').forEach(link=>{
+      const view = link.dataset.view;
+
+      if(view === 'detect'){
+        link.style.display = 'flex';
+      }else{
+        link.style.display = 'none';
+      }
+    });
+
+    /* Hide sidebar group headings that have no visible items */
+    $$('.sb-group').forEach(group=>{
+      const visibleLinks = [...group.querySelectorAll('.sb-link')]
+        .some(link => link.style.display !== 'none');
+
+      group.style.display = visibleLinks ? 'block' : 'none';
+    });
+
+  }else{
+
+    /* Show everything for other roles */
+    $$('.sb-link').forEach(link=>{
+      link.style.display = 'flex';
+    });
+
+    $$('.sb-group').forEach(group=>{
+      group.style.display = 'block';
+    });
+  }
+} 
 function closeSidebar(){ const s=$('#sidebar'); if(s)s.classList.remove('open'); const b=$('#sbBackdrop'); if(b)b.classList.remove('on'); }
 function openSidebar(){ const s=$('#sidebar'); if(s)s.classList.add('open'); const b=$('#sbBackdrop'); if(b)b.classList.add('on'); }
 </script>
@@ -2404,12 +2478,65 @@ function printReport(){ window.print(); }
    Block 4c: users / settings / help / notifications / tour
    ============================================================ */
 const PERMS=[
-  {p:'View detections', Administrator:1, Researcher:1, 'Data Analyst':1, Moderator:1, Seller:1},
-  {p:'Run analysis',    Administrator:1, Researcher:1, 'Data Analyst':1, Moderator:1},
-  {p:'Edit listings',   Administrator:1, Researcher:0, 'Data Analyst':1, Moderator:1},
-  {p:'Manage dataset',  Administrator:1, Researcher:1, 'Data Analyst':1, Moderator:0},
-  {p:'Manage users',    Administrator:1, Researcher:0, 'Data Analyst':0, Moderator:0},
-  {p:'Change settings', Administrator:1, Researcher:0, 'Data Analyst':0, Moderator:0},
+   {
+    p:'View detections',
+    Administrator:1,
+    Researcher:1,
+    'Data Analyst':1,
+    Moderator:1,
+    Seller:1,
+    Buyer:1
+  },
+
+  {
+    p:'Run analysis',
+    Administrator:1,
+    Researcher:1,
+    'Data Analyst':1,
+    Moderator:1,
+    Seller:0,
+    Buyer:1
+  },
+
+  {
+    p:'Edit listings',
+    Administrator:1,
+    Researcher:0,
+    'Data Analyst':1,
+    Moderator:1,
+    Seller:0,
+    Buyer:0
+  },
+
+  {
+    p:'Manage dataset',
+    Administrator:1,
+    Researcher:1,
+    'Data Analyst':1,
+    Moderator:0,
+    Seller:0,
+    Buyer:0
+  },
+
+  {
+    p:'Manage users',
+    Administrator:1,
+    Researcher:0,
+    'Data Analyst':0,
+    Moderator:0,
+    Seller:0,
+    Buyer:0
+  },
+
+  {
+    p:'Change settings',
+    Administrator:1,
+    Researcher:0,
+    'Data Analyst':0,
+    Moderator:0,
+    Seller:0,
+    Buyer:0
+  }
 ];
 function renderUsers(){
   const v=$('#view-users'); if(!v) return;
