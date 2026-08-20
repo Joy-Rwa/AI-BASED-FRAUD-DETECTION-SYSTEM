@@ -1811,33 +1811,61 @@ const VIEW_TITLES={
 };
 let CURRENT_VIEW='dashboard';
 function navTo(view){
-  /* Buyer is allowed to use AI Detection only */
-  if(STATE.user && STATE.user.role === 'Buyer'){
-    if(view !== 'detect'){
+ /* ================================
+     ROLE-BASED ACCESS CONTROL
+     ================================ */
+
+  if(STATE.user){
+
+    const role = STATE.user.role;
+
+    /* Buyer: AI Detection only */
+    if(role === 'Buyer' && view !== 'detect'){
       view = 'detect';
+    }
+
+    /* User Management: Administrator only */
+    if(view === 'users' && role !== 'Administrator'){
+      toast('Access denied. Only the Administrator can manage users.','fraud');
+      view = role === 'Buyer' ? 'detect' : 'dashboard';
     }
   }
 
-  if(!VIEW_TITLES[view]) view='dashboard';
+  if(!VIEW_TITLES[view]){
+    view='dashboard';
+  }
 
   CURRENT_VIEW=view;
 
   $$('.sb-link').forEach(l=>{
-    l.classList.toggle('active', l.dataset.view===view);
+    l.classList.toggle(
+      'active',
+      l.dataset.view===view
+    );
   });
 
   $$('.view').forEach(v=>{
-    v.classList.toggle('active', v.id==='view-'+view);
+    v.classList.toggle(
+      'active',
+      v.id==='view-'+view
+    );
   });
 
   const cr=$('#crumbCur');
-  if(cr) cr.textContent=VIEW_TITLES[view];
+
+  if(cr){
+    cr.textContent=VIEW_TITLES[view];
+  }
 
   renderView(view);
+
   closeSidebar();
 
   const c=$('.content');
-  if(c) c.scrollTop=0;
+
+  if(c){
+    c.scrollTop=0;
+  }
 }
   
   /* hide all other sidebar buttons */
@@ -1847,37 +1875,72 @@ function navTo(view){
 
   const role = STATE.user.role;
 
-  /* Buyer can only access AI Detection */
-  if(role === 'Buyer'){
+  $$('.sb-link').forEach(link=>{
 
-    $$('.sb-link').forEach(link=>{
-      const view = link.dataset.view;
+    const view = link.dataset.view;
+
+    /* ================================
+       USER MANAGEMENT
+       ADMINISTRATOR ONLY
+       ================================ */
+
+    if(view === 'users'){
+      link.style.display =
+        role === 'Administrator' ? 'flex' : 'none';
+
+      return;
+    }
+
+    /* ================================
+       BUYER
+       AI DETECTION ONLY
+       ================================ */
+
+    if(role === 'Buyer'){
 
       if(view === 'detect'){
-        link.style.display = 'flex';
+        link.style.display='flex';
       }else{
-        link.style.display = 'none';
+        link.style.display='none';
       }
-    });
 
-    /* Hide sidebar group headings that have no visible items */
-    $$('.sb-group').forEach(group=>{
-      const visibleLinks = [...group.querySelectorAll('.sb-link')]
-        .some(link => link.style.display !== 'none');
+      return;
+    }
 
-      group.style.display = visibleLinks ? 'block' : 'none';
-    });
+    /* ================================
+       OTHER ROLES
+       ================================ */
 
-  }else{
+    link.style.display='flex';
 
-    /* Show everything for other roles */
-    $$('.sb-link').forEach(link=>{
-      link.style.display = 'flex';
-    });
+  });
 
-    $$('.sb-group').forEach(group=>{
-      group.style.display = 'block';
-    });
+  /* Hide empty sidebar groups */
+
+  $$('.sb-group').forEach(group=>{
+
+    const visibleLinks =
+      [...group.querySelectorAll('.sb-link')]
+      .some(link => link.style.display !== 'none');
+
+    group.style.display =
+      visibleLinks ? 'block' : 'none';
+
+  });
+   /* ================================
+     ADD USER BUTTON
+     ADMINISTRATOR ONLY
+     ================================ */
+
+  const addUserBtn = $('#addUserBtn');
+
+  if(addUserBtn){
+
+    addUserBtn.style.display =
+      role === 'Administrator'
+        ? 'inline-flex'
+        : 'none';
+
   }
 } 
 function closeSidebar(){ const s=$('#sidebar'); if(s)s.classList.remove('open'); const b=$('#sbBackdrop'); if(b)b.classList.remove('on'); }
@@ -2739,10 +2802,36 @@ const PERMS=[
     Moderator:0,
     Seller:0,
     Buyer:0
-  }
+  },
+  {
+  p:'Manage users',
+  Administrator:1,
+  Researcher:0,
+  'Data Analyst':0,
+  Moderator:0,
+  Seller:0,
+  Buyer:0
+},
 ];
 function renderUsers(){
-  const v=$('#view-users'); if(!v) return;
+  /* Administrator only */
+  if(!STATE.user || STATE.user.role !== 'Administrator'){
+
+    toast(
+      'Access denied. Only the Administrator can manage users.',
+      'fraud'
+    );
+
+    navTo(
+      STATE.user && STATE.user.role === 'Buyer'
+        ? 'detect'
+        : 'dashboard'
+    );
+
+    return;
+  }
+  const v=$('#view-users');
+  if(!v) return;
   const ut=$('#usersTable');
   ut.querySelector('thead').innerHTML='<tr><th class="no-sort">Operator</th><th class="no-sort">Role</th><th class="no-sort">Status</th><th class="no-sort">Last active</th></tr>';
   ut.querySelector('tbody').innerHTML=DEMO_ACCOUNTS.map((a,i)=>`<tr>
