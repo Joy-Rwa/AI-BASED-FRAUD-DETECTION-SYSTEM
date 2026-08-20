@@ -1921,6 +1921,209 @@ function download(filename, text, type){
   setTimeout(()=>URL.revokeObjectURL(url),1500);
   toast('Downloaded '+filename,'genuine');
 }
+  function downloadPdfReport(){
+
+  /* Make sure an analysis has been performed */
+  if(!STATE.lastAnalysis){
+    toast('Please analyze a post before downloading the report.','review');
+    return;
+  }
+
+  const analysis = STATE.lastAnalysis;
+  const result = analysis.res;
+
+  const postText = analysis.text || '';
+  const label = result.label || 'Unknown';
+  const confidence = result.confidence ?? '—';
+  const fraudScore = result.fraudScore ?? '—';
+  const risk = result.risk || '—';
+  const reason = result.reason || 'No explanation available.';
+
+  const generated = new Date().toLocaleString('en-GB',{
+    day:'2-digit',
+    month:'short',
+    year:'numeric',
+    hour:'2-digit',
+    minute:'2-digit'
+  });
+
+  const reportHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>FraudGuard AI - Detection Report</title>
+
+<style>
+
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  background:#f4f7fb;
+  color:#0a1a33;
+  margin:0;
+  padding:40px;
+}
+
+.report{
+  max-width:850px;
+  margin:auto;
+  background:white;
+  padding:40px;
+  border-radius:12px;
+  box-shadow:0 5px 25px rgba(0,0,0,.08);
+}
+
+.header{
+  border-bottom:2px solid #0a1a33;
+  padding-bottom:18px;
+  margin-bottom:25px;
+}
+
+.header h1{
+  margin:0 0 8px;
+  font-size:26px;
+}
+
+.header p{
+  margin:0;
+  color:#667085;
+}
+
+.section{
+  margin-top:25px;
+}
+
+.section h2{
+  font-size:18px;
+  border-bottom:1px solid #ddd;
+  padding-bottom:8px;
+}
+
+.result{
+  padding:20px;
+  border-radius:10px;
+  margin-top:15px;
+  background:${label === 'Fraudulent' ? '#fde7e5' : '#dcfae6'};
+}
+
+.result h3{
+  margin:0 0 8px;
+  font-size:24px;
+}
+
+.metric{
+  display:flex;
+  justify-content:space-between;
+  padding:12px 0;
+  border-bottom:1px solid #eee;
+}
+
+.post{
+  background:#f6f9fd;
+  border:1px solid #e1e8f2;
+  padding:18px;
+  border-radius:8px;
+  line-height:1.6;
+  white-space:pre-wrap;
+}
+
+.footer{
+  margin-top:30px;
+  padding-top:15px;
+  border-top:1px solid #ddd;
+  font-size:11px;
+  color:#667085;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="report">
+
+  <div class="header">
+    <h1>FraudGuard AI — Detection Report</h1>
+    <p>Facebook Marketplace Fraud Detection</p>
+    <p>Generated: ${generated}</p>
+  </div>
+
+  <div class="section">
+
+    <h2>1. Detection Result</h2>
+
+    <div class="result">
+
+      <h3>${label}</h3>
+
+      <div class="metric">
+        <strong>Confidence</strong>
+        <span>${confidence}%</span>
+      </div>
+
+      <div class="metric">
+        <strong>Fraud Score</strong>
+        <span>${fraudScore}%</span>
+      </div>
+
+      <div class="metric">
+        <strong>Risk Level</strong>
+        <span>${risk}</span>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="section">
+
+    <h2>2. Marketplace Post Analyzed</h2>
+
+    <div class="post">${esc(postText)}</div>
+
+  </div>
+
+  <div class="section">
+
+    <h2>3. AI Explanation</h2>
+
+    <p>${esc(reason)}</p>
+
+  </div>
+
+  <div class="section">
+
+    <h2>4. Recommendation</h2>
+
+    <p>
+      ${
+        label === 'Fraudulent'
+        ? 'The listing shows characteristics associated with fraudulent business information. The buyer should exercise caution and verify the seller before making any payment.'
+        : 'The listing does not show strong indicators of fraudulent activity. However, users should still verify the seller and transaction details before making payment.'
+      }
+    </p>
+
+  </div>
+
+  <div class="footer">
+    FraudGuard AI is a research prototype. AI classifications are estimates
+    and should be confirmed by a human moderator before enforcement.
+  </div>
+
+</div>
+
+</body>
+</html>
+`;
+
+  download(
+    'fraudguard_detection_report.html',
+    reportHTML,
+    'text/html;charset=utf-8'
+  );
+}
 function toCSV(rows, cols){
   const head=cols.map(c=>`"${c.label}"`).join(',');
   const body=rows.map(r=>cols.map(c=>{let v=c.get?c.get(r):r[c.key]; v=String(v==null?'':v).replace(/"/g,'""'); return `"${v}"`;}).join(',')).join('\n');
